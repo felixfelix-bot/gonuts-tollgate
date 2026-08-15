@@ -18,49 +18,57 @@ type DLEQ struct {
 	Challenge *big.Int
 }
 
+// Proof represents a Cashu proof
+type Proof struct {
+	Amount uint64
+	Secret string
+	C *big.Int  // commitment
+	D *big.Int  // signature
+	ID string  // keyset ID that this proof belongs to
+}
+
 // Keyset represents a Cashu keyset
 type Keyset struct {
 	ID       string
 	Keys     []*btcec.PublicKey
 	Unit     string
 	MintURL  string
-}
-
-// Proof represents a Cashu proof
-type Proof struct {
- Amount uint64
- Secret string
- C *big.Int  // commitment
- D *big.Int  // signature
+	IsActive bool // whether this keyset is currently active
 }
 
 // VerifyProofsDLEQWithKeysets verifies that proofs from different keysets represent the same value
-// using Discrete Log Equality proofs
+// using Discrete Log Equality proofs. This function handles keyset rotation by using proof.Id
+// to identify the correct historical keyset for each proof.
 func VerifyProofsDLEQWithKeysets(proofs []Proof, keysets []*Keyset) (bool, error) {
 	if len(proofs) == 0 || len(keysets) == 0 {
 		return false, errors.New("no proofs or keysets provided")
 	}
 
-	if len(proofs) != len(keysets) {
-		return false, fmt.Errorf("number of proofs (%d) must match number of keysets (%d)", len(proofs), len(keysets))
+	// Create a map of keyset ID to keyset for quick lookup
+	keysetMap := make(map[string]*Keyset)
+	for _, keyset := range keysets {
+		keysetMap[keyset.ID] = keyset
 	}
 
-	// For each proof-keyset pair, verify DLEQ
+	// Verify each proof against the correct keyset
 	for i, proof := range proofs {
-		keyset := keysets[i]
-		
-		if len(keyset.Keys) == 0 {
-			return false, fmt.Errorf("keyset %s has no keys", keyset.ID)
+		if proof.ID == "" {
+			return false, fmt.Errorf("proof %d has no keyset ID", i)
 		}
 
-		// Verify the proof against the keyset
+		keyset, exists := keysetMap[proof.ID]
+		if !exists {
+			return false, fmt.Errorf("keyset with ID %s not found for proof %d", proof.ID, i)
+		}
+
+		// Verify the proof against the specific keyset
 		valid, err := verifyProofDLEQ(proof, keyset)
 		if err != nil {
-			return false, fmt.Errorf("failed to verify proof %d: %w", i, err)
+			return false, fmt.Errorf("failed to verify proof %d against keyset %s: %w", i, proof.ID, err)
 		}
 
 		if !valid {
-			return false, fmt.Errorf("proof %d is invalid for keyset %s", i, keyset.ID)
+			return false, fmt.Errorf("proof %d is invalid for keyset %s", i, proof.ID)
 		}
 	}
 
@@ -74,6 +82,18 @@ func VerifyProofsDLEQWithKeysets(proofs []Proof, keysets []*Keyset) (bool, error
 	}
 
 	return true, nil
+}
+
+// GetKeysetForProofs returns the keyset that should be used to verify a given proof
+// based on the proof's ID. This handles keyset rotation scenarios.
+func GetKeysetForProofs(proof Proof, keysets []*Keyset) (*Keyset, error) {
+	for _, keyset := range keysets {
+		if keyset.ID == proof.ID {
+			return keyset, nil
+		}
+	}
+	
+	return nil, fmt.Errorf("no keyset found with ID %s for proof", proof.ID)
 }
 
 // verifyProofDLEQ verifies a single proof against a keyset using DLEQ
