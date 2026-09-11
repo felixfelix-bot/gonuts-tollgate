@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/OpenTollGate/gonuts-tollgate/cashu"
 	"github.com/OpenTollGate/gonuts-tollgate/cashu/nuts/nut04"
@@ -35,7 +36,7 @@ type BoltDB struct {
 }
 
 func InitBolt(path string) (*BoltDB, error) {
-	db, err := bolt.Open(filepath.Join(path, "wallet.db"), 0600, nil)
+	db, err := bolt.Open(filepath.Join(path, "wallet.db"), 0600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("error setting bolt db: %v", err)
 	}

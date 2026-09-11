@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenTollGate/gonuts-tollgate/cashu"
 	"github.com/OpenTollGate/gonuts-tollgate/cashu/nuts/nut04"
@@ -481,4 +482,29 @@ func generateRandomMeltQuotes(num int) []MeltQuote {
 		quotes[i] = quote
 	}
 	return quotes
+}
+
+func TestInitBoltLockTimeout(t *testing.T) {
+	dir := t.TempDir()
+
+	// First open — holds the lock.
+	db1, err := InitBolt(dir)
+	if err != nil {
+		t.Fatalf("first InitBolt: %v", err)
+	}
+	defer db1.Close()
+
+	// Second open on the same directory must fail with a timeout
+	// error instead of blocking forever.
+	start := time.Now()
+	_, err = InitBolt(dir)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected error from second InitBolt (DB locked)")
+	}
+	if elapsed > 10*time.Second {
+		t.Fatalf("InitBolt took too long (%v) — timeout not working?", elapsed)
+	}
+	t.Logf("InitBolt correctly failed after %v: %v", elapsed, err)
 }
