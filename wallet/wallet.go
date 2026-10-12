@@ -658,6 +658,10 @@ func (w *Wallet) Receive(token cashu.Token, swapToTrusted bool) (uint64, error) 
 		return 0, errors.New("invalid DLEQ proof")
 	}
 
+	if len(proofsToSwap) == 0 {
+		return 0, errors.New("no proofs in token")
+	}
+
 	// if P2PK, add signature to Witness in the proofs
 	nut10Secret, err := nut10.DeserializeSecret(proofsToSwap[0].Secret)
 	if err == nil && nut10Secret.Kind == nut10.P2PK {
@@ -819,7 +823,16 @@ func (w *Wallet) createSwapRequest(proofs cashu.Proofs, mint *walletMint) (swapR
 	keysetCounter := w.counterForKeyset(mint.activeKeyset.Id)
 
 	fees := feesForProofs(proofs, mint)
-	split := w.splitWalletTarget(proofs.Amount()-uint64(fees), mint.mintURL)
+	total := proofs.Amount()
+	if total < uint64(fees) {
+		// Without this guard the subtraction below wraps to a near-max
+		// uint64 and the wallet builds (and POSTs) an absurd swap — the
+		// mint's input/output accounting is the backstop, but the wallet
+		// should fail fast on a token whose value cannot cover its own
+		// fees. Reachable with a remotely delivered token.
+		return swapRequestPayload{}, fmt.Errorf("token amount %d is below the mint's swap fees (%d): nothing to swap", total, fees)
+	}
+	split := w.splitWalletTarget(total-uint64(fees), mint.mintURL)
 	outputs, secrets, rs, err := w.createBlindedMessages(split, mint.activeKeyset.Id, &keysetCounter)
 	if err != nil {
 		return swapRequestPayload{}, fmt.Errorf("createBlindedMessages: %w", err)
