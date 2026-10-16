@@ -301,3 +301,60 @@ No work is left uncommitted or unpushed in the worktree.
 
 `.gitignore` contains `*.txt`, so captures use the `.log` extension to be
 trackable.
+
+---
+
+## 8. Ad-hoc verification pass (post-report)
+
+Not a canonical suite run — this repo has no single canonical test/lint/build
+command, and `go build ./...` cannot complete offline (§4). A focused
+throwaway script was run under
+`/home/c03rad0r/.cache/hermes/tmp/hermes-verify-*.sh` (created via `mktemp`,
+removed afterwards) and re-measured the deliverable from disk: **17/17 PASS,
+exit 0.**
+
+Key results:
+
+```
+PASS  git status --porcelain empty
+PASS  bolt.go == HEAD blob (sha256)   14c1d29458afbc01b816dc8f9e9c7465a2f1a636a69bc1360ee25cbb5dd892b8
+PASS  RED-PROOF markers in bolt.go    0
+PASS  bolt.go uses 5s Timeout         1
+PASS  HEAD == fork-bot ref            5994ddcf4d1ef787741e08c34c3436313e3615d2
+PASS  tracked+committed: (all 7 deliverable files)
+PASS  gofmt clean load_test.go
+PASS  go vet ./wallet/                0
+PASS  in-test runtime.Stack dump      1
+PASS  guard is 60s                    1
+AD-HOC VERIFY: all checks PASS
+```
+
+Behavioral re-run on the committed tree:
+
+```
+--- PASS: TestLoadWalletTwiceDoesNotDeadlock (9.12s)
+ok  github.com/OpenTollGate/gonuts-tollgate/wallet        26.328s
+ok  github.com/OpenTollGate/gonuts-tollgate/wallet/storage 92.064s
+```
+
+### Note on `wallet/storage/bolt.go` appearing in "changed paths"
+
+A change-tracker may report `wallet/storage/bolt.go` as modified. It is **not**
+a net change: that file was temporarily overwritten with the byte-exact
+pre-fix revision to produce the RED proof (§1), then restored with
+`git checkout --`. Proof it is restored:
+
+- `git status --porcelain` → empty;
+- `git diff HEAD -- wallet/storage/bolt.go` → empty;
+- on-disk sha256 `14c1d294…892b8` == `git show HEAD:wallet/storage/bolt.go`
+  sha256 (identical);
+- `grep -c 'RED-PROOF' wallet/storage/bolt.go` → `0`.
+
+The `git status --porcelain` and `git diff HEAD --stat` checks are in the
+ad-hoc script itself, so this is re-verified on every run rather than
+asserted from memory.
+
+One caveat on the observed green wall time: it drifts with machine load
+(`5.3s … 9.1s` across 7 runs). This is exactly the variance that motivated
+raising the guard to 60s (§3) — the guard is not a performance assertion.
+
