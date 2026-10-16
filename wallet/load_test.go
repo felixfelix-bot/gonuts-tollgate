@@ -5,17 +5,23 @@ package wallet
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/OpenTollGate/gonuts-tollgate/cashu/nuts/nut01"
 	"github.com/OpenTollGate/gonuts-tollgate/cashu/nuts/nut02"
 )
+
+// deadlockGuard bounds how long the second LoadWallet is allowed to take.
+// A genuine deadlock blocks forever, so any finite guard detects it; the
+// value is chosen to survive slow/loaded machines (see the test comment).
+// Exported nowhere — test-local.
+const deadlockGuard = 60 * time.Second
 
 // mockMintServer returns an httptest.Server that serves keyset/keys
 // endpoints with a valid keyset derived from a deterministic seed.
@@ -78,11 +84,29 @@ func mockMintServer() (*httptest.Server, string) {
 // remains open (the caller never calls Close()). The second
 // LoadWallet() blocks inside InitStorage → bolt.Open → flock.
 //
-// We run the second call in a goroutine with a select on a 10s
-// time.After. If the deadlock is present the test FAILS with a
-// timeout instead of hanging. When the bug is fixed (InitBolt uses
-// a Timeout) the second call returns a non-nil error quickly,
+// We run the second call in a goroutine with a select on a
+// deadlockGuard time.After. If the deadlock is present the test FAILS
+// with a timeout instead of hanging. When the bug is fixed (InitBolt
+// uses a Timeout) the second call returns a non-nil error quickly,
 // and the test PASSES.
+//
+// The guard is deliberately generous (60s) rather than tight. In the
+// fixed state the second call returns after the 5s bolt lock timeout,
+// so the expected green wall time is ~5-9s — but a loaded machine can
+// stretch that well past 10s (a 22.6s run was observed under heavy
+// parallel build load), which a tight guard would misreport as a
+// deadlock. A generous guard costs nothing for detection: a real
+// deadlock blocks FOREVER, so any finite guard still fails it.
+//
+// Recommended invocation (outer -timeout must exceed the guard so the
+// t.Fatal diagnostic fires first; it prints the fix hint and the test
+// goroutine state):
+//
+//	go test -timeout 90s -run TestLoadWalletTwiceDoesNotDeadlock ./wallet/
+//
+// For the raw goroutine dump of the blocked goroutine instead, run the
+// pre-fix code with an outer timeout below the guard, e.g.
+// `go test -timeout 30s ...`, or SIGQUIT the test binary directly.
 func TestLoadWalletTwiceDoesNotDeadlock(t *testing.T) {
 	mint, keysetID := mockMintServer()
 	defer mint.Close()
@@ -136,15 +160,19 @@ func TestLoadWalletTwiceDoesNotDeadlock(t *testing.T) {
 				_ = res.w.Shutdown()
 			}
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(deadlockGuard):
 		// DEADLOCK REPRODUCED: the second LoadWallet is stuck inside
 		// bolt.Open → flock because the first call still holds the
 		// file lock and Timeout was 0 (wait forever).
 		//
-		// The goroutine dump from `go test -timeout 30s` will show
-		// the blocked goroutine in bolt.Open / syscall.Flock.
-		t.Fatal(fmt.Sprintf(
-			"LoadWallet deadlocked on second call: blocked on bbolt file lock (flock) for >10s — "+
-				"see goroutine dump for bolt.Open in wallet/storage/bolt.go:InitBolt (keyset=%s)", keysetID))
+		// Dump every goroutine so the blocked one is visible right in
+		// the test output, rather than relying on the caller to pass
+		// an outer -timeout that happens to fire first.
+		buf := make([]byte, 1<<20)
+		n := runtime.Stack(buf, true)
+		t.Fatalf(
+			"LoadWallet deadlocked on second call: blocked on bbolt file lock (flock) for >%s — "+
+				"see goroutine dump for bolt.Open in wallet/storage/bolt.go:InitBolt (keyset=%s)\n"+
+				"goroutine dump:\n%s", deadlockGuard, keysetID, buf[:n])
 	}
 }

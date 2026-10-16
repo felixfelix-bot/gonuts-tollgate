@@ -1,0 +1,21 @@
+Green-state runs of TestLoadWalletTwiceDoesNotDeadlock against the FIXED tree
+invocation: go test -timeout 90s -run TestLoadWalletTwiceDoesNotDeadlock -v -count=1 ./wallet/
+
+=== run 1 ===
+=== RUN   TestLoadWalletTwiceDoesNotDeadlock
+    load_test.go:156: second LoadWallet returned error (expected when lock is held): InitStorage: error setting bolt db: timeout
+--- PASS: TestLoadWalletTwiceDoesNotDeadlock (6.68s)
+PASS
+ok  	github.com/OpenTollGate/gonuts-tollgate/wallet	6.690s
+=== run 2 ===
+=== RUN   TestLoadWalletTwiceDoesNotDeadlock
+    load_test.go:156: second LoadWallet returned error (expected when lock is held): InitStorage: error setting bolt db: timeout
+--- PASS: TestLoadWalletTwiceDoesNotDeadlock (6.57s)
+PASS
+ok  	github.com/OpenTollGate/gonuts-tollgate/wallet	6.609s
+=== run 3 ===
+=== RUN   TestLoadWalletTwiceDoesNotDeadlock
+    load_test.go:156: second LoadWallet returned error (expected when lock is held): InitStorage: error setting bolt db: timeout
+--- PASS: TestLoadWalletTwiceDoesNotDeadlock (5.88s)
+PASS
+ok  	github.com/OpenTollGate/gonuts-tollgate/wallet	5.890s

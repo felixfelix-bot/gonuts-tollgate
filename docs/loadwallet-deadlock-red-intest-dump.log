@@ -1,0 +1,121 @@
+=== RUN   TestLoadWalletTwiceDoesNotDeadlock
+    load_test.go:113: mock mint at http://127.0.0.1:40225, keyset id=0090de6a40474267
+    load_test.go:173: LoadWallet deadlocked on second call: blocked on bbolt file lock (flock) for >1m0s — see goroutine dump for bolt.Open in wallet/storage/bolt.go:InitBolt (keyset=0090de6a40474267)
+        goroutine dump:
+        goroutine 7 [running]:
+        github.com/OpenTollGate/gonuts-tollgate/wallet.TestLoadWalletTwiceDoesNotDeadlock(0xc00024c8c0)
+        	/home/c03rad0r/worktrees/gnt-loaddeadlock/wallet/load_test.go:172 +0x436
+        testing.tRunner(0xc00024c8c0, 0x9e9308)
+        	/usr/lib/go-1.24/src/testing/testing.go:1792 +0xf4
+        created by testing.(*T).Run in goroutine 1
+        	/usr/lib/go-1.24/src/testing/testing.go:1851 +0x413
+        
+        goroutine 1 [chan receive, 1 minutes]:
+        testing.(*T).Run(0xc00024c700, {0x8ffc45?, 0xc00003bb30?}, 0x9e9308)
+        	/usr/lib/go-1.24/src/testing/testing.go:1859 +0x431
+        testing.runTests.func1(0xc00024c700)
+        	/usr/lib/go-1.24/src/testing/testing.go:2279 +0x37
+        testing.tRunner(0xc00024c700, 0xc00003bc70)
+        	/usr/lib/go-1.24/src/testing/testing.go:1792 +0xf4
+        testing.runTests(0xc000010330, {0xd67c60, 0xa, 0xa}, {0xd76700?, 0x7?, 0xd74d20?})
+        	/usr/lib/go-1.24/src/testing/testing.go:2277 +0x4b4
+        testing.(*M).Run(0xc000099720)
+        	/usr/lib/go-1.24/src/testing/testing.go:2142 +0x64a
+        main.main()
+        	_testmain.go:63 +0x9b
+        
+        goroutine 12 [IO wait]:
+        internal/poll.runtime_pollWait(0x70c32db327f0, 0x72)
+        	/usr/lib/go-1.24/src/runtime/netpoll.go:351 +0x85
+        internal/poll.(*pollDesc).wait(0xc000242080?, 0x8751e0?, 0x0)
+        	/usr/lib/go-1.24/src/internal/poll/fd_poll_runtime.go:84 +0x27
+        internal/poll.(*pollDesc).waitRead(...)
+        	/usr/lib/go-1.24/src/internal/poll/fd_poll_runtime.go:89
+        internal/poll.(*FD).Accept(0xc000242080)
+        	/usr/lib/go-1.24/src/internal/poll/fd_unix.go:620 +0x295
+        net.(*netFD).accept(0xc000242080)
+        	/usr/lib/go-1.24/src/net/fd_unix.go:172 +0x29
+        net.(*TCPListener).accept(0xc000082480)
+        	/usr/lib/go-1.24/src/net/tcpsock_posix.go:159 +0x1b
+        net.(*TCPListener).Accept(0xc000082480)
+        	/usr/lib/go-1.24/src/net/tcpsock.go:380 +0x30
+        net/http.(*Server).Serve(0xc00025c000, {0xa6ede0, 0xc000082480})
+        	/usr/lib/go-1.24/src/net/http/server.go:3424 +0x30c
+        net/http/httptest.(*Server).goServe.func1()
+        	/usr/lib/go-1.24/src/net/http/httptest/server.go:311 +0x55
+        created by net/http/httptest.(*Server).goServe in goroutine 7
+        	/usr/lib/go-1.24/src/net/http/httptest/server.go:309 +0x65
+        
+        goroutine 15 [IO wait]:
+        internal/poll.runtime_pollWait(0x70c32db326d8, 0x72)
+        	/usr/lib/go-1.24/src/runtime/netpoll.go:351 +0x85
+        internal/poll.(*pollDesc).wait(0xc000242300?, 0xc000141000?, 0x0)
+        	/usr/lib/go-1.24/src/internal/poll/fd_poll_runtime.go:84 +0x27
+        internal/poll.(*pollDesc).waitRead(...)
+        	/usr/lib/go-1.24/src/internal/poll/fd_poll_runtime.go:89
+        internal/poll.(*FD).Read(0xc000242300, {0xc000141000, 0x1000, 0x1000})
+        	/usr/lib/go-1.24/src/internal/poll/fd_unix.go:165 +0x27a
+        net.(*netFD).Read(0xc000242300, {0xc000141000?, 0x4059f4?, 0x0?})
+        	/usr/lib/go-1.24/src/net/fd_posix.go:55 +0x25
+        net.(*conn).Read(0xc00005a380, {0xc000141000?, 0x4057ef?, 0xc000112db0?})
+        	/usr/lib/go-1.24/src/net/net.go:194 +0x45
+        net/http.(*persistConn).Read(0xc0003b5c20, {0xc000141000?, 0x6ecde5?, 0xa6b780?})
+        	/usr/lib/go-1.24/src/net/http/transport.go:2122 +0x47
+        bufio.(*Reader).fill(0xc000110540)
+        	/usr/lib/go-1.24/src/bufio/bufio.go:113 +0x103
+        bufio.(*Reader).Peek(0xc000110540, 0x1)
+        	/usr/lib/go-1.24/src/bufio/bufio.go:152 +0x53
+        net/http.(*persistConn).readLoop(0xc0003b5c20)
+        	/usr/lib/go-1.24/src/net/http/transport.go:2275 +0x172
+        created by net/http.(*Transport).dialConn in goroutine 13
+        	/usr/lib/go-1.24/src/net/http/transport.go:1944 +0x174f
+        
+        goroutine 16 [select]:
+        net/http.(*persistConn).writeLoop(0xc0003b5c20)
+        	/usr/lib/go-1.24/src/net/http/transport.go:2590 +0xe7
+        created by net/http.(*Transport).dialConn in goroutine 13
+        	/usr/lib/go-1.24/src/net/http/transport.go:1945 +0x17a5
+        
+        goroutine 18 [IO wait]:
+        internal/poll.runtime_pollWait(0x70c32db325c0, 0x72)
+        	/usr/lib/go-1.24/src/runtime/netpoll.go:351 +0x85
+        internal/poll.(*pollDesc).wait(0xc0001a2000?, 0xc0001ac000?, 0x0)
+        	/usr/lib/go-1.24/src/internal/poll/fd_poll_runtime.go:84 +0x27
+        internal/poll.(*pollDesc).waitRead(...)
+        	/usr/lib/go-1.24/src/internal/poll/fd_poll_runtime.go:89
+        internal/poll.(*FD).Read(0xc0001a2000, {0xc0001ac000, 0x1000, 0x1000})
+        	/usr/lib/go-1.24/src/internal/poll/fd_unix.go:165 +0x27a
+        net.(*netFD).Read(0xc0001a2000, {0xc0001ac000?, 0xc00020bad0?, 0x4ad105?})
+        	/usr/lib/go-1.24/src/net/fd_posix.go:55 +0x25
+        net.(*conn).Read(0xc00019c008, {0xc0001ac000?, 0x0?, 0x0?})
+        	/usr/lib/go-1.24/src/net/net.go:194 +0x45
+        net/http.(*connReader).Read(0xc00019a240, {0xc0001ac000, 0x1000, 0x1000})
+        	/usr/lib/go-1.24/src/net/http/server.go:798 +0x159
+        bufio.(*Reader).fill(0xc0000222a0)
+        	/usr/lib/go-1.24/src/bufio/bufio.go:113 +0x103
+        bufio.(*Reader).Peek(0xc0000222a0, 0x4)
+        	/usr/lib/go-1.24/src/bufio/bufio.go:152 +0x53
+        net/http.(*conn).serve(0xc0001ee2d0, {0xa6f428, 0xc00019a120})
+        	/usr/lib/go-1.24/src/net/http/server.go:2137 +0x785
+        created by net/http.(*Server).Serve in goroutine 12
+        	/usr/lib/go-1.24/src/net/http/server.go:3454 +0x485
+        
+        goroutine 19 [sleep]:
+        time.Sleep(0x2faf080)
+        	/usr/lib/go-1.24/src/runtime/time.go:338 +0x165
+        go.etcd.io/bbolt.flock(0xc0001b62a0?, 0x1, 0x0)
+        	/home/c03rad0r/go/pkg/mod/go.etcd.io/bbolt@v1.4.0/bolt_unix.go:44 +0xd7
+        go.etcd.io/bbolt.Open({0xc0001b62a0, 0x62}, 0x180, 0x0)
+        	/home/c03rad0r/go/pkg/mod/go.etcd.io/bbolt@v1.4.0/db.go:248 +0x525
+        github.com/OpenTollGate/gonuts-tollgate/wallet/storage.InitBolt({0xc000032240?, 0x58?})
+        	/home/c03rad0r/worktrees/gnt-loaddeadlock/wallet/storage/bolt.go:38 +0x65
+        github.com/OpenTollGate/gonuts-tollgate/wallet.InitStorage(...)
+        	/home/c03rad0r/worktrees/gnt-loaddeadlock/wallet/wallet.go:76
+        github.com/OpenTollGate/gonuts-tollgate/wallet.LoadWallet({{0xc000032240?, 0xc00025c000?}, {0xc000026930?, 0xc000133fd0?}})
+        	/home/c03rad0r/worktrees/gnt-loaddeadlock/wallet/wallet.go:85 +0x9f
+        github.com/OpenTollGate/gonuts-tollgate/wallet.TestLoadWalletTwiceDoesNotDeadlock.func1()
+        	/home/c03rad0r/worktrees/gnt-loaddeadlock/wallet/load_test.go:145 +0x2c
+        created by github.com/OpenTollGate/gonuts-tollgate/wallet.TestLoadWalletTwiceDoesNotDeadlock in goroutine 7
+        	/home/c03rad0r/worktrees/gnt-loaddeadlock/wallet/load_test.go:144 +0x2c5
+--- FAIL: TestLoadWalletTwiceDoesNotDeadlock (62.21s)
+FAIL
