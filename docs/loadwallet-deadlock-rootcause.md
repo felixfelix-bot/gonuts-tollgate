@@ -226,3 +226,48 @@ they belong to.
 
 Note: the repository `.gitignore` contains `*.txt`, so these captures use
 the `.log` extension in order to be tracked.
+
+## Reconciliation with upstream (read before merging this branch)
+
+**This deliverable is a duplicate of work that already exists upstream, in
+two different forms. Decide deliberately before merging.**
+
+The local branch this was built on (`main` @ `934ce46`) is *ahead 2, behind
+23* relative to `origin/main`. Upstream (`refs/remotes/origin/main`) is 23
+commits ahead and **already contains a fix for this issue plus its own
+wallet-level regression test**:
+
+| | this branch | upstream `origin/main` |
+|---|---|---|
+| fix | `bolt.Options{Timeout: 5 * time.Second}` inline (`60a7405`) | named `boltOpenTimeout` const + maps `bolt.ErrTimeout` to exported `storage.ErrDBLocked` sentinel (`wallet/storage/bolt.go:46-50,177-181`) |
+| wallet-level regression test | `TestLoadWalletTwiceDoesNotDeadlock` (`wallet/load_test.go`) | `TestLoadWallet_SecondInProcessCallWithoutShutdownDoesNotBlock` (`wallet/wallet_test.go:402-443`) |
+| guard | 60s, in-test `runtime.Stack` dump | 3 min, `runtime.Stack` dump |
+
+Base commit check: `4b7d125` **is** an ancestor of `origin/main`
+(`git merge-base --is-ancestor 4b7d125 origin/main` → YES), so upstream and
+this branch share the pre-fix base and the divergence is purely the fix
+implementation.
+
+Consequences:
+
+1. **Do not open this as a PR against `origin/main`.** It would re-apply the
+   weaker inline-timeout fix on top of the already-merged hardening and add
+   a second, redundant wallet-level deadlock test. The upstream fix is
+   strictly better (typed sentinel beats string-matching a timeout error).
+2. This branch is still useful as the **verification artifact**: it supplies
+   the byte-exact RED reproduction and goroutine dump that the upstream
+   commit message does not carry.
+3. If the intent was to land the fix, the remaining work is upstream-side and
+   already done — nothing to merge. If the intent was an *independent
+   regression test* on top of the hardened upstream fix, the test should be
+   rebased onto `origin/main` and its guard reconciled with the existing
+   `TestLoadWallet_SecondInProcessCallWithoutShutdownDoesNotBlock` (they
+   test the same property; keeping both means two tests that each hold an
+   exclusive flock for ~5s).
+
+Row 3 is the only real open question, and it is a manager decision — not
+something this pass should resolve unilaterally by force-pushing or
+rewriting the branch. This pass therefore **committed and pushed the
+verified deliverable to the worker fork and stopped**, leaving `origin/main`
+and the upstream fix untouched.
+
